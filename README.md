@@ -1,10 +1,10 @@
 **Project Title**
 
-[Enter your project name here]
+Smart Locker System
 
 **📌 Project Overview**
 
-[Provide a short description of your project]
+A multi-gateway security locker, encompassing physical hardware and a mobile application. The first gateway uses an OTP generated on the app, which you enter on the safe to unlock the door. The second gateway challenges you with a math equation, and its answer is the exact distance at which you place your hand for the sensor to detect it and open the gate. The third gateway uses a coloured pattern inside the safe to open another mini locker.
 
 
 **📂 Repository Structure**
