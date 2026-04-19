@@ -1,5 +1,3 @@
-#Gateway 1 wherein user generates random OTP and enters it into the locker through a custom made keypad (10 pushbuttons).
-#User gets 3 tries to enter the correct code, if not, the code breaks.
 #==========================================================================================
 #IMPORT MODULES
 
@@ -72,7 +70,9 @@ buzzer.duty(0)
 np = neopixel.NeoPixel(Pin(12), 16)
 
 #Pushbuttons - USING 26 at the end instead of 2 to fix the ghost typing (pin 2 wasn't taking input)
-button_pins = [15, 4, 5, 18, 19, 21, 22, 23, 25, 26]    #usage of lists to shorten initialisation code, big brain
+# before gpio 35, we had gpio 26, we made 35 work by adding an external "PullUp" resistor using Nayan's brilliant teachings.
+# 10k ohm resistor was attached externally (we had to resort to this coz of lack of gpios)
+button_pins = [15, 4, 5, 18, 19, 21, 22, 23, 25, 35]    #usage of lists to shorten initialisation code, big brain
 buttons = [Pin(p, Pin.IN, Pin.PULL_UP) for p in button_pins]
 
 #Servo Motor
@@ -178,7 +178,7 @@ while True:
             target_otp = [int(d) for d in str(OTP)] 
             
             #Send back to App
-            ble.gatts_write(char_handle, str(OTP))   #Writes the new OTP string into the Characteristic's memory on the ESP32 (GATT language)
+            ble.gatts_write(char_handle, "A" + str(OTP))   #Writes the new OTP string into the Characteristic's memory on the ESP32 (GATT language)
             if conn_handle is not None:     #if phone is not disconnected i.e if it is connected...
                 ble.gatts_notify(conn_handle, char_handle)    #...it "pushes" the new OTP directly to the phone via the NOTIFY flag we set up earlier
                 
