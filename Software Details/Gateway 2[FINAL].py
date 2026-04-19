@@ -74,12 +74,12 @@ np = neopixel.NeoPixel(Pin(12), 16)
 #Servo Motor
 servo = PWM(Pin(13), freq=50)
 S_CLOSED = 40   #0 degrees - start position
-S_OPEN = 115    # 180 degrees - end position
+S_OPEN = 115    #180 degrees - end position
 servo.duty(S_CLOSED) 
 
 #Ultrasonic Sensor
-trig = Pin(27, Pin.OUT)
-echo = Pin(14, Pin.IN)
+trig = Pin(26, Pin.OUT)
+echo = Pin(34, Pin.IN)
 #==========================================================================================
 
 #==========================================================================================
@@ -89,7 +89,7 @@ active_mode = 0 # 0 = Idle, 2 = Gateway 2 Active
 
 #Gateway 2 Variables
 target_distance = 0.0 
-TOLERANCE = 1.0     #+/- 1cm leeway for human error
+TOLERANCE = 2.0     #+/- 1cm leeway for human error
 steady_count = 0    #Timer to ensure hand is still
 last_dist = 0.0     #Tracks previous hand position
 #==========================================================================================
@@ -118,7 +118,7 @@ def measure_distance():
     time.sleep_us(10)
     trig.off()
     
-    # 30000us timeout prevents code freeze if no object is there
+    #30000us timeout prevents code freeze if no object is there
     duration = time_pulse_us(echo, 1, 30000) 
     if duration < 0:
         return 999 
@@ -176,7 +176,7 @@ while True:
         #Picking the answer first (between 10 and 15)
         target_distance = random.randint(10, 15)
         
-        #Randomly choosing the pattern: A + B - C or A - B + C
+        #Randomly choosing the pattern: A+B-C or A-B+C
         pattern = random.choice(['+-', '-+'])
         
         #Working backwards to build the equation
@@ -189,17 +189,17 @@ while True:
             equation_str = str(num1) + " + " + str(num2) + " - " + str(num3) + " = ?" #15+5-8 = ? (12!)
             
         else:
-            # Pattern: num1 - num2 + num3 = target_distance
+            #Pattern: num1 - num2 + num3 = target_distance
             num3 = random.randint(1, 9)              # Pick a random number to add, for example 6 = num3
             subtotal = target_distance - num3        #subtotal = 12-6 = 6
             num2 = random.randint(1, 9)              #Pick a random number to subtract, for example 3 = num2
             num1 = subtotal + num2                   #6+3 = 9
             equation_str = str(num1) + " - " + str(num2) + " + " + str(num3) + " = ?"  #9-3+6=? (12!) [BODMAS - addition & subtraction have equal priority, solve from left to right]
             
-        print("Generated Equation:", equation_str, "| Target Distance:", target_distance, "cm")
+        print("Generated Equation:", equation_str)
         
         #Sending the equation to the phone
-        ble.gatts_write(char_handle, equation_str)  
+        ble.gatts_write(char_handle, "B" + equation_str)   
         if conn_handle is not None: 
             ble.gatts_notify(conn_handle, char_handle) 
             
@@ -213,46 +213,55 @@ while True:
         value = "" #Clear any unused commands
 
 
-    # GATEWAY 2 HARDWARE (Ultrasonic Sensor + Math)
+    #GATEWAY 2 HARDWARE 
     
     if active_mode == 2:
         current_dist = measure_distance()
         
-        #Only checking if a hand is reasonably close (under 25cm)
-        if current_dist < 25:
+        #Ignore ghost glitches entirely! [Utrasound was acting up - dhangh se nahi chal rha tha]
+        #If the sensor hiccups, we just skip this loop and keep the timer running.
+        if current_dist < 2 or current_dist == 999:
+            pass 
             
-            #Checking if hand is steady (within 1.5cm of its last position)
-            if abs(current_dist - last_dist) < 1.5:
+        #Normal sensing zone (Hand is between 2cm and 25cm)
+        elif current_dist < 25:
+            
+            #Slightly wider stability margin (2.5cm) to allow for natural hand shaking
+            if abs(current_dist - last_dist) < 2.5:
                 steady_count += 1
             else:
-                steady_count = 0 #Hand is moving, reset timer
+                steady_count = 0 # Hand is actually moving, reset timer
                 
-            #If steady for ~1 second (10 loops of 0.1s)
-            if steady_count >= 10:
+            #If steady for ~1.5 seconds (15 loops)
+            if steady_count >= 15:
                 print(f"Hand locked in at: {current_dist:.1f} cm")
                 
-                #Evaluate the answer with +/- 1cm tolerance
+                #Evaluating the answer
                 if (target_distance - TOLERANCE) <= current_dist <= (target_distance + TOLERANCE):
                     success_effect()
                     open_locker()
-                    time.sleep(15) #Keep locker open for 15 seconds
+                    time.sleep(15) 
                     close_locker()
                     
-                    #Reset back to idle
                     steady_count = 0
                     active_mode = 0 
                     print("System Idle. Waiting for App command...")
                 else:
                     wrong_effect()
                     steady_count = 0
-                    time.sleep(1) #Small pause before allowing another attempt
+                    
+                    #Anti-Punishment Loop. 
+                    #Force the user to completely remove their hand before trying again.
+                    print("Please remove hand from sensor to try again.")
+                    while measure_distance() < 25:
+                        time.sleep(0.1)
+                    print("Ready for a new attempt!")
                     
             last_dist = current_dist
             
         else:
-            #Hand is removed or too far away, reset the timer
+            #Hand is removed or too far away, reset the timer safely
             steady_count = 0
             last_dist = 0
             
-    time.sleep(0.1) #Loop delay for sensor stability
-#==========================================================================================
+    time.sleep(0.1) # Loop delay for sensor stability
