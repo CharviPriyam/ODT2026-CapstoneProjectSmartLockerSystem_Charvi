@@ -28,4 +28,5 @@ Media → Weekly progress and final output
 
 
 **👥 Team Members**
-[Name]
+Charvi Priyam (myself)
+Avantika Vinod
